@@ -23,16 +23,20 @@ namespace B1_Apps
 			// First tile
 			AppTile tile1 = new AppTile
 			{
-				AppName = "Calculator",
+				AppName = "Calculator (1.5)",
 				Icon = Properties.Resources.Calculator
 
 			};
-			tile1.TileClicked += (s, e) => MessageBox.Show("Launching Calculator");
+			tile1.TileClicked += (s, e) =>
+			{
+				var calculatorForm = new B1_Apps.Apps.Calculator.CalculatorForm();
+				calculatorForm.Show(); // nebo ShowDialog(), pokud chceš modální
+			};
 
 			// Second tile
 			AppTile tile2 = new AppTile
 			{
-				AppName = "Notes",
+				AppName = "Notes (2.1)",
 				Icon = Properties.Resources.Notes
 			};
 			tile2.TileClicked += (s, e) =>
@@ -44,13 +48,23 @@ namespace B1_Apps
 			// Third tile
 			AppTile tile3 = new AppTile
 			{
-				AppName = "Game",
+				AppName = "KybFighter (4.3) ",
 				Icon = Properties.Resources.Game
 			};
 			tile3.TileClicked += (s, e) =>
 			{
 				var gameForm = new B1_Apps.Apps.Game.Form1();
 				gameForm.Show(); // nebo ShowDialog(), pokud chceš modální
+			};
+			AppTile tile4 = new AppTile
+			{
+				AppName = "YT Downloader (0.1)",
+				Icon = Properties.Resources.YTdownloader
+			};
+			tile4.TileClicked += (s, e) =>
+			{
+				var YTdownloaderForm = new B1_Apps.Apps.YTdownloader.YTdownloader();
+				YTdownloaderForm.Show(); // nebo ShowDialog(), pokud chceš modální
 			};
 			// ====================================================================
 			FlowLayoutPanel panel = new FlowLayoutPanel();
@@ -64,9 +78,8 @@ namespace B1_Apps
 			panel.Controls.Add(tile1);
 			panel.Controls.Add(tile2);
 			panel.Controls.Add(tile3);
-			panel.Controls.Add(tile1);
-			panel.Controls.Add(tile2);
-			panel.Controls.Add(tile3);
+			panel.Controls.Add(tile4);
+			
 			this.Controls.Add(panel);
 			
 

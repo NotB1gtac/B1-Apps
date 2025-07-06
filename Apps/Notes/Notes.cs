@@ -42,7 +42,7 @@ namespace B1_Apps.Apps.Notes
 			this.Text = "Notes";
 			this.ResumeLayout(false);
 		}
-
+		
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing && (components != null))
