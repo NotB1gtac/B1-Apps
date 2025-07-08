@@ -1,6 +1,6 @@
-﻿namespace B1_Apps.Apps.YTdownloader
+﻿namespace B1_Apps.Apps.AudioPlayer
 {
-	partial class YTdownloader
+	partial class AudioPlayer
 	{
 		/// <summary>
 		/// Required designer variable.
@@ -11,14 +11,7 @@
 		/// Clean up any resources being used.
 		/// </summary>
 		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-		protected override void Dispose(bool disposing)
-		{
-			if (disposing && (components != null))
-			{
-				components.Dispose();
-			}
-			base.Dispose(disposing);
-		}
+		
 
 		#region Windows Form Designer generated code
 

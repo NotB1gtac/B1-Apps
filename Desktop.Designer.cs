@@ -28,14 +28,15 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			SuspendLayout();
+			
 			// 
-			// Form1
+			// Desktop
 			// 
 			AutoScaleDimensions = new SizeF(7F, 15F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(2019, 1014);
-			Name = "Form1";
+			
+			Name = "Desktop";
 			Text = "Form1";
 			ResumeLayout(false);
 		}

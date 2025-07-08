@@ -63,6 +63,16 @@ namespace B1_Apps.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap AudioPlayer {
+            get {
+                object obj = ResourceManager.GetObject("AudioPlayer", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Calculator {
             get {
                 object obj = ResourceManager.GetObject("Calculator", resourceCulture);
@@ -76,6 +86,16 @@ namespace B1_Apps.Properties {
         internal static System.Drawing.Bitmap Game {
             get {
                 object obj = ResourceManager.GetObject("Game", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap LargeIcon {
+            get {
+                object obj = ResourceManager.GetObject("LargeIcon", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

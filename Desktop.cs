@@ -9,6 +9,7 @@ namespace B1_Apps
 {
 	public partial class Desktop : Form
 	{
+		
 		public Desktop()
 		{
 			InitializeComponent();
@@ -17,72 +18,72 @@ namespace B1_Apps
 
 		private void InitializeAppTiles()
 		{
-			
-
-
-			// First tile
-			AppTile tile1 = new AppTile
+			// Top panel for regular app tiles
+			var tilePanel = new FlowLayoutPanel
 			{
-				AppName = "Calculator (1.5)",
-				Icon = Properties.Resources.Calculator
-
-			};
-			tile1.TileClicked += (s, e) =>
-			{
-				var calculatorForm = new B1_Apps.Apps.Calculator.CalculatorForm();
-				calculatorForm.Show(); // nebo ShowDialog(), pokud chceš modální
+				Dock = DockStyle.Top,
+				AutoSize = true,
+				AutoSizeMode = AutoSizeMode.GrowAndShrink,
+				WrapContents = true,
+				Padding = new Padding(20),
+				FlowDirection = FlowDirection.LeftToRight
 			};
 
-			// Second tile
-			AppTile tile2 = new AppTile
+			tilePanel.Controls.Add(CreateTile("Calculator (1.5)", Properties.Resources.Calculator,
+				(s, e) => new B1_Apps.Apps.Calculator.CalculatorForm().Show()));
+			tilePanel.Controls.Add(CreateTile("Notes (2.1)", Properties.Resources.Notes,
+				(s, e) => new B1_Apps.Apps.Notes.NotesMainForm().Show()));
+			tilePanel.Controls.Add(CreateTile("KybFighter (4.3)", Properties.Resources.Game,
+				(s, e) => new B1_Apps.Apps.Game.Form1().Show()));
+			tilePanel.Controls.Add(CreateTile("YT Downloader (2.0)", Properties.Resources.YTdownloader,
+				(s, e) => new B1_Apps.Apps.YTdownloader.YTdownloader().Show()));
+			tilePanel.Controls.Add(CreateTile("Audio Player (1.0)", Properties.Resources.AudioPlayer,
+				(s, e) => new B1_Apps.Apps.AudioPlayer.AudioPlayer().Show()));
+
+			Controls.Add(tilePanel);
+
+			// Bottom panel to center the large button
+			var buttonPanel = new FlowLayoutPanel
 			{
-				AppName = "Notes (2.1)",
-				Icon = Properties.Resources.Notes
-			};
-			tile2.TileClicked += (s, e) =>
-			{
-				var notesForm = new B1_Apps.Apps.Notes.NotesMainForm();
-				notesForm.Show(); // nebo ShowDialog(), pokud chceš modální
+				Dock = DockStyle.Top,
+				AutoSize = true,
+				AutoSizeMode = AutoSizeMode.GrowAndShrink,
+				FlowDirection = FlowDirection.LeftToRight,
+				WrapContents = false,
+				Padding = new Padding(20),
+				Anchor = AnchorStyles.Top | AnchorStyles.Left
 			};
 
-			// Third tile
-			AppTile tile3 = new AppTile
+			var largeBtn = new Button
 			{
-				AppName = "KybFighter (4.3) ",
-				Icon = Properties.Resources.Game
+				Text = "",
+				Font = new Font("Segoe UI", 16, FontStyle.Bold),
+				Size = new Size(615, 406),
+				FlatStyle = FlatStyle.Flat,
+				Image = Properties.Resources.LargeIcon, // use your desired image
+				ImageAlign = ContentAlignment.MiddleCenter,
+				TextAlign = ContentAlignment.BottomCenter,
 			};
-			tile3.TileClicked += (s, e) =>
-			{
-				var gameForm = new B1_Apps.Apps.Game.Form1();
-				gameForm.Show(); // nebo ShowDialog(), pokud chceš modální
-			};
-			AppTile tile4 = new AppTile
-			{
-				AppName = "YT Downloader (0.1)",
-				Icon = Properties.Resources.YTdownloader
-			};
-			tile4.TileClicked += (s, e) =>
-			{
-				var YTdownloaderForm = new B1_Apps.Apps.YTdownloader.YTdownloader();
-				YTdownloaderForm.Show(); // nebo ShowDialog(), pokud chceš modální
-			};
-			// ====================================================================
-			FlowLayoutPanel panel = new FlowLayoutPanel();
-			panel.Dock = DockStyle.Fill;
-			panel.AutoScroll = true;
-			panel.WrapContents = true;
-			panel.Padding = new Padding(20);
-			panel.Margin = new Padding(20);
-			panel.FlowDirection = FlowDirection.LeftToRight;
+			largeBtn.Click += (s, e) => MessageBox.Show("Developed by B1gtac© \r\n Distributing this software as YOURS is not cool, otherwise go ahead \r\n USED Nugget packages:" +
+				" \r\n AngouriMath \r\n Clipper2 \r\n MathNet \r\n NAudio \r\n YT-dlp \r\n DLSharp \r\n FUCK THE SEMICOLON AND GRAPHICAL LOOKS");
 
-			panel.Controls.Add(tile1);
-			panel.Controls.Add(tile2);
-			panel.Controls.Add(tile3);
-			panel.Controls.Add(tile4);
-			
-			this.Controls.Add(panel);
-			
+			buttonPanel.Controls.Add(largeBtn);
+			buttonPanel.SetFlowBreak(largeBtn, true); // ensures it's on its own line
 
+			Controls.Add(buttonPanel);
 		}
+
+		// Helper method for creating app tiles
+		private AppTile CreateTile(string name, Image icon, EventHandler onClick)
+		{
+			var tile = new AppTile
+			{
+				AppName = name,
+				Icon = icon
+			};
+			tile.TileClicked += onClick;
+			return tile;
+		}
+
 	}
 }
