@@ -22,6 +22,11 @@ namespace B1_Apps.Apps.AudioPlayer
 		private ComboBox comboOutput;
 		private Label currentSongLabel;
 		private Button btnPlay;
+		private TrackBar trackPosition;
+		private Label labelElapsed;
+		private Label labelTotal;
+		private System.Windows.Forms.Timer playbackTimer;
+		private bool isSeeking = false;
 
 		public AudioPlayer()
 		{
@@ -109,8 +114,46 @@ namespace B1_Apps.Apps.AudioPlayer
 			});
 
 			mainLayout.Controls.Add(panelControls);
+			// In SetupUI(), after your volume controls:
+			trackPosition = new TrackBar
+			{
+				Dock = DockStyle.Top,
+				Minimum = 0,
+				TickStyle = TickStyle.None
+			};
+			trackPosition.MouseDown += (s, e) => isSeeking = true;
+			trackPosition.MouseUp += (s, e) =>
+			{
+				if (audioFile != null)
+					audioFile.CurrentTime = TimeSpan.FromSeconds(trackPosition.Value);
+				isSeeking = false;
+			};
+			mainLayout.Controls.Add(trackPosition);
+
+			// Labels for time display
+			var timePanel = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 20 };
+			labelElapsed = new Label { Text = "00:00", AutoSize = true };
+			labelTotal = new Label { Text = "00:00", AutoSize = true };
+			timePanel.Controls.AddRange(new Control[] { labelElapsed, new Label { Text = "/" }, labelTotal });
+			mainLayout.Controls.Add(timePanel);
+
+			// Timer to update UI
+			playbackTimer = new System.Windows.Forms.Timer { Interval = 500 };
+			playbackTimer.Tick += PlaybackTimer_Tick;
+
 		}
 
+		private void PlaybackTimer_Tick(object sender, EventArgs e)
+		{
+			if (audioFile == null || isSeeking) return;
+
+			var current = audioFile.CurrentTime;
+			var total = audioFile.TotalTime;
+			trackPosition.Maximum = (int)total.TotalSeconds;
+			trackPosition.Value = Math.Min((int)current.TotalSeconds, trackPosition.Maximum);
+			labelElapsed.Text = current.ToString(@"mm\:ss");
+			labelTotal.Text = total.ToString(@"mm\:ss");
+		}
 
 		private List<(string Name, int DeviceNumber)> EnumerateOutputDevices()
 		{
@@ -154,6 +197,8 @@ namespace B1_Apps.Apps.AudioPlayer
 
 			// Initialize and start playback
 			outputDevice.Init(audioFile);
+			playbackTimer.Start(); // start updates
+
 			btnPlay.Text = "Pause";
 			UpdateNowPlaying();
 
@@ -207,27 +252,43 @@ namespace B1_Apps.Apps.AudioPlayer
 
 		private void OnPlaybackStopped(object sender, StoppedEventArgs e)
 		{
-			// Avoid re-entrancy: check actual end of file
-			if (audioFile != null && audioFile.Position < audioFile.Length)
+			// Make sure audioFile is still valid before accessing
+			if (audioFile == null || outputDevice == null)
 			{
-				// Probably paused or stopped manually – do nothing
+				Application.Exit();
+				return;
+				
+			}
+			else if (e.Exception != null)
+			{
+				MessageBox.Show($"Playback error: {e.Exception.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
+			else 
+			{
+				if (audioFile.Position < audioFile.Length )
+					return;
 
-			if (currentIndex + 1 < playlist.Count)
-			{
-				currentIndex++;
-				songListBox.Invoke((Action)(() =>
+				playbackTimer?.Stop();
+
+				if (currentIndex + 1 < playlist.Count)
 				{
-					songListBox.SelectedIndex = currentIndex;
-				}));
-				InitializePlayback(playlist[currentIndex]);
+					currentIndex++;
+					songListBox.Invoke((Action)(() =>
+					{
+						songListBox.SelectedIndex = currentIndex;
+					}));
+					InitializePlayback(playlist[currentIndex]);
+				}
+				else
+				{
+					btnPlay.Invoke((Action)(() => btnPlay.Text = "Play"));
+				}
 			}
-			else
-			{
-				btnPlay.Invoke((Action)(() => btnPlay.Text = "Play"));
-			}
+			// Check if playback actually finished (not paused or stopped manually)
+			
 		}
+
 
 
 		private void TogglePlayPause()
@@ -259,11 +320,23 @@ namespace B1_Apps.Apps.AudioPlayer
 			InitializePlayback(playlist[currentIndex]);
 		}
 
+		
 		protected override void OnFormClosing(FormClosingEventArgs e)
 		{
-			outputDevice?.Stop();
+			// Stop the playbackTimer if used
+			playbackTimer?.Stop();
+
+			if (outputDevice != null)
+			{
+				outputDevice.PlaybackStopped -= OnPlaybackStopped;
+				outputDevice.Stop();
+				outputDevice.Dispose();
+				outputDevice = null;
+			}
+
 			audioFile?.Dispose();
-			outputDevice?.Dispose();
+			audioFile = null;
+
 			base.OnFormClosing(e);
 		}
 
