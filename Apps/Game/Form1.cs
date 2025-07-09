@@ -323,13 +323,22 @@
 			string musicFolder = Path.Combine(Application.StartupPath, "Music");
 
 			// Load all WAV files in the folder
-			songs = Directory.GetFiles(musicFolder, "*.wav").ToList();
-
-			if (songs.Count == 0)
+			
+			try
 			{
-				MessageBox.Show("No songs found in /Music folder.");
+				songs = Directory.GetFiles(musicFolder, "*.wav").ToList();
+				if (songs.Count == 0)
+				{
+					MessageBox.Show("No songs found in /Music folder.");
+					return;
+				}
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"Error loading songs: {ex.Message}");
 				return;
 			}
+			
 
 			currentSongIndex = 0;
 			LoadCurrentSong();
