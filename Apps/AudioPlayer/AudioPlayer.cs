@@ -179,6 +179,8 @@ namespace B1_Apps.Apps.AudioPlayer
 			}
 		}
 
+		private bool isManualStop = false; // Add this class-level variable
+
 		private void InitializePlayback(string file)
 		{
 			// Clean up any previous playback
@@ -197,7 +199,7 @@ namespace B1_Apps.Apps.AudioPlayer
 
 			// Initialize and start playback
 			outputDevice.Init(audioFile);
-			playbackTimer.Start(); // start updates
+			playbackTimer.Start();
 
 			btnPlay.Text = "Pause";
 			UpdateNowPlaying();
@@ -207,8 +209,8 @@ namespace B1_Apps.Apps.AudioPlayer
 			outputDevice.PlaybackStopped += OnPlaybackStopped;
 
 			outputDevice.Play();
+			isManualStop = false; // Reset manual stop flag when starting new playback
 		}
-
 
 
 		private void BtnBrowse_Click(object sender, EventArgs e)
@@ -252,42 +254,43 @@ namespace B1_Apps.Apps.AudioPlayer
 
 		private void OnPlaybackStopped(object sender, StoppedEventArgs e)
 		{
-			// Make sure audioFile is still valid before accessing
-			if (audioFile == null || outputDevice == null)
+			// Handle exceptions
+			if (e.Exception != null)
 			{
-				Application.Exit();
-				return;
-				
-			}
-			else if (e.Exception != null)
-			{
-				MessageBox.Show($"Playback error: {e.Exception.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show($"Playback error: {e.Exception.Message}", "Error",
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
-			else 
-			{
-				if (audioFile.Position < audioFile.Length )
-					return;
 
+			// Don't proceed if this was a manual stop
+			if (isManualStop)
+			{
 				playbackTimer?.Stop();
-
-				if (currentIndex + 1 < playlist.Count)
-				{
-					currentIndex++;
-					songListBox.Invoke((Action)(() =>
-					{
-						songListBox.SelectedIndex = currentIndex;
-					}));
-					InitializePlayback(playlist[currentIndex]);
-				}
-				else
-				{
-					btnPlay.Invoke((Action)(() => btnPlay.Text = "Play"));
-				}
+				return;
 			}
-			// Check if playback actually finished (not paused or stopped manually)
-			
+
+			// Don't proceed if we're disposing or there's no playlist
+			if (audioFile == null || outputDevice == null || playlist == null)
+				return;
+
+			// Continue to next track
+			playbackTimer?.Stop();
+
+			if (currentIndex + 1 < playlist.Count)
+			{
+				currentIndex++;
+				songListBox.Invoke((Action)(() =>
+				{
+					songListBox.SelectedIndex = currentIndex;
+				}));
+				InitializePlayback(playlist[currentIndex]);
+			}
+			else
+			{
+				btnPlay.Invoke((Action)(() => btnPlay.Text = "Play"));
+			}
 		}
+
 
 
 
@@ -297,6 +300,7 @@ namespace B1_Apps.Apps.AudioPlayer
 			if (outputDevice.PlaybackState == PlaybackState.Playing)
 			{
 				outputDevice.Pause();
+				isManualStop = true;
 				btnPlay.Text = "Play";
 			}
 			else
