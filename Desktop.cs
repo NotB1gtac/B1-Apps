@@ -37,7 +37,7 @@ namespace B1_Apps
 				(s, e) => new B1_Apps.Apps.Game.Form1().Show()));
 			tilePanel.Controls.Add(CreateTile("YT Downloader (2.0)", Properties.Resources.YTdownloader,
 				(s, e) => new B1_Apps.Apps.YTdownloader.YTdownloader().Show()));
-			tilePanel.Controls.Add(CreateTile("Audio Player (1.3)", Properties.Resources.AudioPlayer,
+			tilePanel.Controls.Add(CreateTile("Audio Player (2.1)", Properties.Resources.AudioPlayer,
 				(s, e) => new B1_Apps.Apps.AudioPlayer.AudioPlayer().Show()));
 			tilePanel.Controls.Add(CreateTile("Audio/Video Convert", Properties.Resources.Converter,
 				(s, e) => new B1_Apps.Apps.FormatConverter.FormatConverterForm().Show()));
