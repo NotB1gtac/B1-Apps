@@ -3,6 +3,8 @@ namespace B1_Apps
 {
 	using System;
 	using System.Windows.Forms;
+	
+
 	internal static class Program
 	{
 		/// <summary>
@@ -15,7 +17,10 @@ namespace B1_Apps
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 			Application.Run(new Desktop());
+			
+
 		}
+		
 
 	}
 }

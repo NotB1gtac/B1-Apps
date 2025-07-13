@@ -39,7 +39,7 @@ namespace B1_Apps
 				(s, e) => new B1_Apps.Apps.YTdownloader.YTdownloader().Show()));
 			tilePanel.Controls.Add(CreateTile("Audio Player (1.3)", Properties.Resources.AudioPlayer,
 				(s, e) => new B1_Apps.Apps.AudioPlayer.AudioPlayer().Show()));
-			tilePanel.Controls.Add(CreateTile("Format Converter (1.0)", Properties.Resources.Converter,
+			tilePanel.Controls.Add(CreateTile("Audio/Video Convert", Properties.Resources.Converter,
 				(s, e) => new B1_Apps.Apps.FormatConverter.FormatConverterForm().Show()));
 
 			Controls.Add(tilePanel);
@@ -67,7 +67,7 @@ namespace B1_Apps
 				TextAlign = ContentAlignment.BottomCenter,
 			};
 			largeBtn.Click += (s, e) => MessageBox.Show("Developed by B1gtac© \r\n Distributing this software as YOURS is not cool, otherwise go ahead \r\n USED Nugget packages:" +
-				" \r\n AngouriMath \r\n Clipper2 \r\n MathNet \r\n NAudio \r\n YT-dlp \r\n DLSharp \r\n FUCK THE SEMICOLON AND GRAPHICAL LOOKS");
+				" \r\n AngouriMath \r\n Clipper2 \r\n MathNet \r\n NAudio \r\n YT-dlp \r\n DLSharp \r\n FFMPEG \r\n FUCK THE SEMICOLON AND GRAPHICAL LOOKS");
 
 			buttonPanel.Controls.Add(largeBtn);
 			buttonPanel.SetFlowBreak(largeBtn, true); // ensures it's on its own line
