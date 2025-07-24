@@ -23,6 +23,7 @@ namespace B1_Apps.Apps.VideoPlayer
 		private TrackBar _timeline;
 		private bool _isDraggingTimeline = false;
 		private bool _uiHidden = false;
+		private Button _subtitleBtn; // Button to manage subtitles
 
 		public VideoPlayerForm()
 		{
@@ -84,7 +85,7 @@ namespace B1_Apps.Apps.VideoPlayer
 			this.Controls.Add(_openBtn);
 			_openBtn.BringToFront();
 			// Subtitle button (add near your Open button)
-			var subtitleBtn = new Button
+			_subtitleBtn = new Button
 			{
 				Text = "Subtitle Track",
 				FlatStyle = FlatStyle.Flat,
@@ -93,9 +94,9 @@ namespace B1_Apps.Apps.VideoPlayer
 				Location = new Point(this.ClientSize.Width - 220, 10), // Left of Open button
 				Size = new Size(100, 25)
 			};
-			subtitleBtn.Click += ShowSubtitleOptions;
-			this.Controls.Add(subtitleBtn);
-			subtitleBtn.BringToFront();
+			_subtitleBtn.Click += ShowSubtitleOptions;
+			this.Controls.Add(_subtitleBtn);
+			_subtitleBtn.BringToFront();
 
 			// Add timeline and play/pause button first
 			AddTimeline();
@@ -153,6 +154,7 @@ namespace B1_Apps.Apps.VideoPlayer
 			_openBtn.Visible = shouldShow;
 			_playPauseBtn.Visible = shouldShow;
 			_timeline.Visible = shouldShow;
+			_subtitleBtn.Visible = shouldShow;
 			
 
 		}
@@ -235,8 +237,7 @@ namespace B1_Apps.Apps.VideoPlayer
 		}
 		private void UpdateSubtitleStatus(string status)
 		{
-			// Update your status label or UI element here
-			// Example: _statusLabel.Text = status;
+			//TO DO: Implement a label or status bar to show subtitle status
 		}
 
 		private void ShowSubtitleOptions(object sender, EventArgs e)
@@ -246,7 +247,7 @@ namespace B1_Apps.Apps.VideoPlayer
 			var menu = new ContextMenuStrip();
 			var media = _mediaPlayer.Media;
 
-			// Option 1: Disable subtitles
+			// Option 1: Disable subtitles good for native speakears 
 			menu.Items.Add("Disable Subtitles", null, (s, args) =>
 			{
 				_mediaPlayer.SetSpu(-1);
@@ -270,7 +271,7 @@ namespace B1_Apps.Apps.VideoPlayer
 				}
 			}
 
-			// Option 3: Load external subtitle file
+			// Option 3: Load external subtitle file should work
 			menu.Items.Add("Load External Subtitle...", null, (s, args) => LoadExternalSubtitle());
 
 			menu.Show(Cursor.Position);
