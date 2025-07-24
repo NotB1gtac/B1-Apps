@@ -153,6 +153,8 @@ namespace B1_Apps.Apps.VideoPlayer
 			_openBtn.Visible = shouldShow;
 			_playPauseBtn.Visible = shouldShow;
 			_timeline.Visible = shouldShow;
+			
+
 		}
 
 		private void AddTimeline()
@@ -217,50 +219,54 @@ namespace B1_Apps.Apps.VideoPlayer
 						{
 							_timeline.Maximum = (int)(media.Duration / 1000);
 
-							if (media.Tracks != null)
+							// Get all subtitle tracks with names
+							var subtitleTracks = GetSubtitleTracks(media);
+
+							// Auto-enable first subtitle track if available
+							if (subtitleTracks.Count > 0)
 							{
-								foreach (var track in media.Tracks)
-								{
-									if (track is MediaTrack mediaTrack &&
-										mediaTrack.TrackType == TrackType.Text)
-									{
-										_mediaPlayer.SetSpu(mediaTrack.Id);
-										break;
-									}
-								}
+								_mediaPlayer.SetSpu(subtitleTracks[0].Id);
+								UpdateSubtitleStatus($"Sub: {subtitleTracks[0].DisplayName}");
 							}
 						});
 					};
 				}
 			}
 		}
+		private void UpdateSubtitleStatus(string status)
+		{
+			// Update your status label or UI element here
+			// Example: _statusLabel.Text = status;
+		}
+
 		private void ShowSubtitleOptions(object sender, EventArgs e)
 		{
 			if (_mediaPlayer.Media == null) return;
 
 			var menu = new ContextMenuStrip();
+			var media = _mediaPlayer.Media;
 
 			// Option 1: Disable subtitles
 			menu.Items.Add("Disable Subtitles", null, (s, args) =>
 			{
-				_mediaPlayer.SetSpu(-1); // -1 disables subtitles
+				_mediaPlayer.SetSpu(-1);
+				UpdateSubtitleStatus("Sub: Off");
 			});
 
 			// Option 2: Embedded subtitles
-			var tracks = _mediaPlayer.Media.Tracks;
-			if (tracks != null)
+			var subtitleTracks = GetSubtitleTracks(media);
+			if (subtitleTracks.Count > 0)
 			{
-				var textTracks = tracks.Where(t => t.TrackType == TrackType.Text);
-				if (textTracks.Any())
+				var embeddedMenu = menu.Items.Add("Embedded Tracks") as ToolStripMenuItem;
+				foreach (var track in subtitleTracks)
 				{
-					var embeddedMenu = menu.Items.Add("Embedded Tracks") as ToolStripMenuItem;
-					foreach (var track in textTracks)
-					{
-						embeddedMenu.DropDownItems.Add(
-							$"Track {track.Id}",
-							null,
-							(s, args) => _mediaPlayer.SetSpu(track.Id));
-					}
+					embeddedMenu.DropDownItems.Add(
+						track.DisplayName,
+						null,
+						(s, args) => {
+							_mediaPlayer.SetSpu(track.Id);
+							UpdateSubtitleStatus($"Sub: {track.DisplayName}");
+						});
 				}
 			}
 
@@ -269,6 +275,28 @@ namespace B1_Apps.Apps.VideoPlayer
 
 			menu.Show(Cursor.Position);
 		}
+		private List<SubtitleTrackInfo> GetSubtitleTracks(Media media)
+		{
+			var tracks = new List<SubtitleTrackInfo>();
+			int trackNumber = 1;
+
+			if (media.Tracks != null)
+			{
+				foreach (var track in media.Tracks.OfType<MediaTrack>()
+											  .Where(t => t.TrackType == TrackType.Text))
+				{
+					tracks.Add(new SubtitleTrackInfo
+					{
+						Id = track.Id,
+						Name = "Track",
+						Language = track.Language,
+						TrackNumber = trackNumber++
+					});
+				}
+			}
+			return tracks;
+		}
+
 
 		private void LoadExternalSubtitle()
 		{
@@ -281,7 +309,8 @@ namespace B1_Apps.Apps.VideoPlayer
 					if (media != null)
 					{
 						media.AddOption($":sub-file={dialog.FileName}");
-						media.Parse(); // Re-parse media with new subtitle
+						media.Parse();
+						UpdateSubtitleStatus($"Sub: {Path.GetFileName(dialog.FileName)}");
 					}
 				}
 			}
@@ -322,5 +351,17 @@ namespace B1_Apps.Apps.VideoPlayer
 			_libVLC?.Dispose();
 			base.OnFormClosing(e);
 		}
+	}
+	 class SubtitleTrackInfo
+	{
+		public int Id { get; set; }
+		public string Name { get; set; }
+		public string Language { get; set; }
+		public int TrackNumber { get; set; }
+
+		public string DisplayName =>
+			!string.IsNullOrWhiteSpace(Name) ? $"{Name} ({Language})" :
+			!string.IsNullOrWhiteSpace(Language) ? $"Track {TrackNumber} ({Language})" :
+			$"Track {TrackNumber}";
 	}
 }
