@@ -1,8 +1,11 @@
 ﻿using LibVLCSharp.Shared;
 using LibVLCSharp.WinForms;
+using LibVLCSharp;
 using System;
 using System.IO;
 using System.Windows.Forms;
+using Windows.Media.Core;
+using System.Linq;
 
 namespace B1_Apps.Apps.VideoPlayer
 {
@@ -80,6 +83,19 @@ namespace B1_Apps.Apps.VideoPlayer
 			_openBtn.Click += OpenVideo;
 			this.Controls.Add(_openBtn);
 			_openBtn.BringToFront();
+			// Subtitle button (add near your Open button)
+			var subtitleBtn = new Button
+			{
+				Text = "Subtitle Track",
+				FlatStyle = FlatStyle.Flat,
+				BackColor = Color.Black,
+				ForeColor = Color.White,
+				Location = new Point(this.ClientSize.Width - 220, 10), // Left of Open button
+				Size = new Size(100, 25)
+			};
+			subtitleBtn.Click += ShowSubtitleOptions;
+			this.Controls.Add(subtitleBtn);
+			subtitleBtn.BringToFront();
 
 			// Add timeline and play/pause button first
 			AddTimeline();
@@ -187,23 +203,90 @@ namespace B1_Apps.Apps.VideoPlayer
 				if (dialog.ShowDialog() == DialogResult.OK)
 				{
 					var media = new Media(_libVLC, dialog.FileName);
+
+					// Enable subtitle parsing
+					media.AddOption(":sub-autodetect-file");
+
 					_mediaPlayer.Media = media;
 					_mediaPlayer.Play();
 
-					// Update time label when metadata is loaded
 					media.Parse();
 					media.ParsedChanged += (s, args) =>
 					{
 						this.Invoke((MethodInvoker)delegate
 						{
-							_timeline.Maximum = 1000; // Reset for new video
-							UpdateTimeLabel(null, EventArgs.Empty);
+							_timeline.Maximum = (int)(media.Duration / 1000);
+
+							if (media.Tracks != null)
+							{
+								foreach (var track in media.Tracks)
+								{
+									if (track is MediaTrack mediaTrack &&
+										mediaTrack.TrackType == TrackType.Text)
+									{
+										_mediaPlayer.SetSpu(mediaTrack.Id);
+										break;
+									}
+								}
+							}
 						});
 					};
 				}
 			}
 		}
-		
+		private void ShowSubtitleOptions(object sender, EventArgs e)
+		{
+			if (_mediaPlayer.Media == null) return;
+
+			var menu = new ContextMenuStrip();
+
+			// Option 1: Disable subtitles
+			menu.Items.Add("Disable Subtitles", null, (s, args) =>
+			{
+				_mediaPlayer.SetSpu(-1); // -1 disables subtitles
+			});
+
+			// Option 2: Embedded subtitles
+			var tracks = _mediaPlayer.Media.Tracks;
+			if (tracks != null)
+			{
+				var textTracks = tracks.Where(t => t.TrackType == TrackType.Text);
+				if (textTracks.Any())
+				{
+					var embeddedMenu = menu.Items.Add("Embedded Tracks") as ToolStripMenuItem;
+					foreach (var track in textTracks)
+					{
+						embeddedMenu.DropDownItems.Add(
+							$"Track {track.Id}",
+							null,
+							(s, args) => _mediaPlayer.SetSpu(track.Id));
+					}
+				}
+			}
+
+			// Option 3: Load external subtitle file
+			menu.Items.Add("Load External Subtitle...", null, (s, args) => LoadExternalSubtitle());
+
+			menu.Show(Cursor.Position);
+		}
+
+		private void LoadExternalSubtitle()
+		{
+			using (var dialog = new OpenFileDialog())
+			{
+				dialog.Filter = "Subtitle Files|*.srt;*.ass;*.ssa;*.sub|All Files|*.*";
+				if (dialog.ShowDialog() == DialogResult.OK)
+				{
+					var media = _mediaPlayer.Media;
+					if (media != null)
+					{
+						media.AddOption($":sub-file={dialog.FileName}");
+						media.Parse(); // Re-parse media with new subtitle
+					}
+				}
+			}
+		}
+
 		private void TogglePlayPause(object sender, EventArgs e)
 		{
 			if (_isPlaying)
