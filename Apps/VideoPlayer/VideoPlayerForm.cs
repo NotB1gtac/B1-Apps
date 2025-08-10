@@ -1,29 +1,27 @@
 ﻿using LibVLCSharp.Shared;
 using LibVLCSharp.WinForms;
-using LibVLCSharp;
 using System;
 using System.IO;
-using System.Windows.Forms;
-using Windows.Media.Core;
 using System.Linq;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace B1_Apps.Apps.VideoPlayer
 {
 	public partial class VideoPlayerForm : Form
 	{
 		private LibVLC _libVLC;
-		private MediaPlayer _mediaPlayer;
-		private VideoView _videoView;
-		private Label _timeLabel;
-		private TrackBar _volumeBar;
 		private Button _openBtn;
-		private System.Windows.Forms.Timer _updateTimer;
+		private Button _subtitleBtn;
+		private Button _addTrackBtn;
 		private Button _playPauseBtn;
+		private System.Windows.Forms.Timer _updateTimer;
 		private bool _isPlaying = false;
-		private TrackBar _timeline;
-		private bool _isDraggingTimeline = false;
 		private bool _uiHidden = false;
-		private Button _subtitleBtn; // Button to manage subtitles
+		private Button _AudioBtn;
+		private List<VideoTrack> _tracks = new List<VideoTrack>();
+		private VideoTrack _activeTrack;
 
 		public VideoPlayerForm()
 		{
@@ -36,98 +34,465 @@ namespace B1_Apps.Apps.VideoPlayer
 			string libVlcPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libvlc", "win-x64");
 			Core.Initialize(libVlcPath);
 			_libVLC = new LibVLC();
-			_mediaPlayer = new MediaPlayer(_libVLC);
 		}
 
 		private void SetupUI()
 		{
-			// Video display (fills the form)
-			_videoView = new VideoView { Dock = DockStyle.Fill };
-			_videoView.MediaPlayer = _mediaPlayer;
-			this.Controls.Add(_videoView);
+			this.BackColor = Color.Black;
+			this.Text = "Multi-track Video Player";
 
-			// Time label (bottom-left)
-			_timeLabel = new Label
-			{
-				AutoSize = true,
-				ForeColor = Color.White,
-				BackColor = Color.Black,
-				Padding = new Padding(5),
-				Location = new Point(10, this.ClientSize.Height - 30)
-			};
-			this.Controls.Add(_timeLabel);
-			_timeLabel.BringToFront();
-
-			// Volume slider (bottom-right)
-			_volumeBar = new TrackBar
-			{
-				Width = 100,
-				Minimum = 0,
-				Maximum = 100,
-				Value = 50,
-				TickStyle = TickStyle.None,
-				Location = new Point(this.ClientSize.Width - 110, this.ClientSize.Height - 30)
-			};
-			_volumeBar.ValueChanged += (s, e) => _mediaPlayer.Volume = _volumeBar.Value;
-			this.Controls.Add(_volumeBar);
-			_volumeBar.BringToFront();
-
-			// Open button (top-right)
+			// Open button
 			_openBtn = new Button
 			{
 				Text = "Open Video",
 				FlatStyle = FlatStyle.Flat,
 				BackColor = Color.Black,
 				ForeColor = Color.White,
-				Location = new Point(this.ClientSize.Width - 110, 10)
+				Location = new Point(10, 10)
 			};
 			_openBtn.Click += OpenVideo;
 			this.Controls.Add(_openBtn);
-			_openBtn.BringToFront();
-			// Subtitle button (add near your Open button)
+
+			// Subtitle button
 			_subtitleBtn = new Button
 			{
-				Text = "Subtitle Track",
+				Text = "Subtitles",
 				FlatStyle = FlatStyle.Flat,
 				BackColor = Color.Black,
 				ForeColor = Color.White,
-				Location = new Point(this.ClientSize.Width - 220, 10), // Left of Open button
+				Location = new Point(120, 10),
 				Size = new Size(100, 25)
 			};
 			_subtitleBtn.Click += ShowSubtitleOptions;
 			this.Controls.Add(_subtitleBtn);
-			_subtitleBtn.BringToFront();
 
-			// Add timeline and play/pause button first
-			AddTimeline();
-			AddPlayPauseButton();
+			// Add Track button
+			_addTrackBtn = new Button
+			{
+				Text = "Add Track",
+				FlatStyle = FlatStyle.Flat,
+				BackColor = Color.Black,
+				ForeColor = Color.White,
+				Location = new Point(230, 10),
+				Size = new Size(100, 25)
+			};
+			_addTrackBtn.Click += (s, e) => { CreateNewTrack(); UpdateLayout(); };
+			this.Controls.Add(_addTrackBtn);
+			_AudioBtn = new Button
+			{
+				Text = "Audio",
+				FlatStyle = FlatStyle.Flat,
+				BackColor = Color.Black,
+				ForeColor = Color.White,
+				Location = new Point(340, 10),
+				Size = new Size(100, 25)
+			};
+			_AudioBtn.Click += ShowAudioTrackOptions;
+			this.Controls.Add(_AudioBtn);
 
-			// Timer to update time label
+			// Play/Pause button
+			
+
+			// Timer to update all players
 			_updateTimer = new System.Windows.Forms.Timer { Interval = 200 };
-			_updateTimer.Tick += UpdateTimeLabel;
+			_updateTimer.Tick += UpdateTimeLabels;
 			_updateTimer.Start();
 
-			// Ensure controls resize with the window
-			this.Resize += (s, e) => UpdateControlPositions();
-
 			InitializeHideShortcut();
+
+			this.Resize += (s, e) => UpdateLayout();
 		}
 
-		private void UpdateControlPositions()
+		private void CreateNewTrack()
 		{
-			// Update all control positions
-			_timeLabel.Location = new Point(10, this.ClientSize.Height - 30);
-			_volumeBar.Location = new Point(this.ClientSize.Width - 110, this.ClientSize.Height - 30);
-			_openBtn.Location = new Point(this.ClientSize.Width - 110, 10);
-
-			// Special positioning for play/pause button
-			if (_playPauseBtn != null && _timeline != null)
+			var player = new MediaPlayer(_libVLC);
+			var videoView = new VideoView
 			{
-				_playPauseBtn.Location = new Point(
-					this.ClientSize.Width / 2 - _playPauseBtn.Width / 2,
-					this.ClientSize.Height - _timeline.Height - _playPauseBtn.Height - 10
-				);
+				MediaPlayer = player,
+				Dock = DockStyle.Fill,
+				BackColor = Color.Black
+			};
+
+			var volumeBar = new TrackBar
+			{
+				Minimum = 0,
+				Maximum = 100,
+				Value = 50,
+				TickStyle = TickStyle.None,
+				Dock = DockStyle.Bottom,
+				Height = 30
+			};
+			volumeBar.ValueChanged += (s, e) => player.Volume = volumeBar.Value;
+
+			var timeLabel = new Label
+			{
+				ForeColor = Color.White,
+				BackColor = Color.Black,
+				Dock = DockStyle.Bottom,
+				TextAlign = ContentAlignment.MiddleCenter,
+				Height = 20
+			};
+
+			var timeline = new TrackBar
+			{
+				Minimum = 0,
+				Maximum = 1000,
+				TickStyle = TickStyle.None,
+				Dock = DockStyle.Bottom,
+				Height = 20
+			};
+			timeline.MouseUp += (s, e) =>
+			{
+				if (player.Media != null && player.Media.Duration > 0)
+					player.Time = (long)(timeline.Value * (player.Media.Duration / 1000));
+			};
+
+			var removeBtn = new Button
+			{
+				Text = "✖",
+				FlatStyle = FlatStyle.Flat,
+				BackColor = Color.Red,
+				ForeColor = Color.White,
+				Size = new Size(30, 30),
+				Dock = DockStyle.Top
+			};
+
+			var playPauseBtn = new Button
+			{
+				Text = "▶", // initial icon
+				FlatStyle = FlatStyle.Flat,
+				BackColor = Color.Black,
+				ForeColor = Color.White,
+				Size = new Size(50, 25),
+				Dock = DockStyle.Top,
+				Visible = !_uiHidden // respect current UI hidden state
+			};
+
+			playPauseBtn.Click += (s, e) =>
+			{
+				// toggle play/pause for this specific player
+				if (player.IsPlaying)
+				{
+					player.Pause();
+					playPauseBtn.Text = "▶";
+				}
+				else
+				{
+					player.Play();
+					playPauseBtn.Text = "⏸";
+				}
+			};
+
+			var panel = new Panel
+			{
+				BackColor = Color.Gray,
+				BorderStyle = BorderStyle.FixedSingle
+			};
+
+			var track = new VideoTrack
+			{
+				MediaPlayer = player,
+				VideoView = videoView,
+				VolumeBar = volumeBar,
+				TimeLabel = timeLabel,
+				Timeline = timeline,
+				Panel = panel,
+				RemoveBtn = removeBtn,
+				PlayPauseBtn = playPauseBtn   // <<< assign the play/pause button here
+			};
+
+			removeBtn.Click += (s, e) =>
+			{
+				_tracks.Remove(track);
+				player.Stop();
+				player.Dispose();
+				this.Controls.Remove(panel);
+				UpdateLayout();
+			};
+
+			// Add controls in the order you want them stacked.
+			// Controls added later appear on top when Dock = Top, so add removeBtn then playPauseBtn if you want playPause above remove, etc.
+			panel.Controls.Add(videoView);
+			panel.Controls.Add(timeline);
+			panel.Controls.Add(volumeBar);
+			panel.Controls.Add(timeLabel);
+			panel.Controls.Add(removeBtn);
+			panel.Controls.Add(playPauseBtn);
+
+			// Click anywhere on panel or its children to select
+			panel.Click += (s, e) => SetActiveTrack(track);
+			foreach (Control ctl in panel.Controls)
+			{
+				// avoid overriding the playPause click behavior if desired:
+				// if (ctl != playPauseBtn) ctl.Click += (s,e) => SetActiveTrack(track);
+				ctl.Click += (s, e) => SetActiveTrack(track);
 			}
+
+			_tracks.Add(track);
+			this.Controls.Add(panel);
+
+			// ensure layout recalculated
+			UpdateLayout();
+		}
+
+
+		private void SetActiveTrack(VideoTrack track)
+		{
+			_activeTrack = track;
+			foreach (var t in _tracks)
+			{
+				t.Panel.BackColor = (t == track) ? Color.Yellow : Color.Gray;
+			}
+		}
+
+		private void OpenVideo(object sender, EventArgs e)
+		{
+			if (_activeTrack == null) return;
+
+			using (var dialog = new OpenFileDialog())
+			{
+				dialog.Filter = "Video Files|*.mp4;*.avi;*.mkv;*.mov;*.wmv|All Files|*.*";
+				if (dialog.ShowDialog() == DialogResult.OK)
+				{
+					var media = new Media(_libVLC, dialog.FileName);
+					media.AddOption(":sub-autodetect-file");
+					_activeTrack.MediaPlayer.Media = media;
+					_activeTrack.MediaPlayer.Play();
+				}
+			}
+		}
+
+		private void ShowSubtitleOptions(object sender, EventArgs e)
+		{
+			try
+			{
+
+
+				if (_activeTrack == null || _activeTrack.MediaPlayer.Media == null) return;
+
+				var menu = new ContextMenuStrip();
+				var media = _activeTrack.MediaPlayer.Media;
+
+				// Disable subtitles option
+				menu.Items.Add("Disable Subtitles", null, (s, args) =>
+				{
+					_activeTrack.MediaPlayer.SetSpu(-1);
+				});
+
+				// Embedded subtitle tracks
+				var subtitleTracks = GetSubtitleTracks(media);
+				if (subtitleTracks.Count > 0)
+				{
+					var embeddedMenu = menu.Items.Add("Embedded Tracks") as ToolStripMenuItem;
+					foreach (var track in subtitleTracks)
+					{
+						var displayName = !string.IsNullOrWhiteSpace(track.Language)
+							? $"{track.TrackNumber}. {track.Language} ({track.Id})"
+							: $"{track.TrackNumber}. Track {track.TrackNumber}";
+
+						embeddedMenu.DropDownItems.Add(
+							displayName,
+							null,
+							(s, args) => { _activeTrack.MediaPlayer.SetSpu(track.Id); });
+					}
+				}
+
+				// Load external subtitle file
+				menu.Items.Add("Load External Subtitle...", null, (s, args) => LoadExternalSubtitle());
+
+				// Show menu at cursor
+				menu.Show(Cursor.Position);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"Error showing subtitle options: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private List<SubtitleTrackInfo> GetSubtitleTracks(Media media)
+		{
+			var tracks = new List<SubtitleTrackInfo>();
+			int trackNumber = 1;
+
+			if (media.Tracks != null)
+			{
+				foreach (var track in media.Tracks.OfType<MediaTrack>()
+					.Where(t => t.TrackType == TrackType.Text))
+				{
+					tracks.Add(new SubtitleTrackInfo
+					{
+						Id = track.Id,
+						Language = track.Language,
+						TrackNumber = trackNumber++
+					});
+				}
+			}
+			return tracks;
+		}
+
+		private void LoadExternalSubtitle()
+		{
+			using (var dialog = new OpenFileDialog())
+			{
+				dialog.Filter = "Subtitle Files|*.srt;*.ass;*.ssa;*.sub|All Files|*.*";
+				if (dialog.ShowDialog() == DialogResult.OK)
+				{
+					if (_activeTrack?.MediaPlayer != null)
+					{
+						// Attach the subtitle file immediately without reloading
+						_activeTrack.MediaPlayer.AddSlave(
+							MediaSlaveType.Subtitle,
+							dialog.FileName,
+							true
+						);
+					}
+				}
+			}
+		}
+
+		private class SubtitleTrackInfo
+		{
+			public int Id { get; set; }
+			public string Language { get; set; }
+			public int TrackNumber { get; set; }
+		}
+		private void ShowAudioTrackOptions(object sender, EventArgs e)
+		{
+			if (_activeTrack == null || _activeTrack.MediaPlayer.Media == null) return;
+
+			var menu = new ContextMenuStrip();
+			var media = _activeTrack.MediaPlayer.Media;
+
+			menu.Items.Add("Mute Audio", null, (s, args) =>
+			{
+				_activeTrack.MediaPlayer.SetAudioTrack(-1);
+			});
+
+			var audioTracks = GetAudioTracks(media);
+			if (audioTracks.Count > 0)
+			{
+				var embeddedMenu = menu.Items.Add("Available Audio Tracks") as ToolStripMenuItem;
+				foreach (var track in audioTracks)
+				{
+					embeddedMenu.DropDownItems.Add(
+						track.DisplayName,
+						null,
+						(s, args) => { _activeTrack.MediaPlayer.SetAudioTrack(track.Id); });
+				}
+			}
+
+			menu.Items.Add("Load External Audio...", null, (s, args) => LoadExternalAudio());
+
+			menu.Show(Cursor.Position);
+		}
+
+		private List<AudioTrackInfo> GetAudioTracks(Media media)
+		{
+			var tracks = new List<AudioTrackInfo>();
+			int trackNumber = 1;
+
+			if (media.Tracks != null)
+			{
+				foreach (var track in media.Tracks.OfType<MediaTrack>()
+											  .Where(t => t.TrackType == TrackType.Audio))
+				{
+					tracks.Add(new AudioTrackInfo
+					{
+						Id = track.Id,
+						
+						Language = track.Language,
+						TrackNumber = trackNumber++
+					});
+				}
+			}
+			return tracks;
+		}
+
+		private void LoadExternalAudio()
+		{
+			using (var dialog = new OpenFileDialog())
+			{
+				dialog.Filter = "Audio Files|*.mp3;*.aac;*.ogg;*.wav;*.flac|All Files|*.*";
+				if (dialog.ShowDialog() == DialogResult.OK)
+				{
+					var media = _activeTrack?.MediaPlayer?.Media;
+					if (media != null)
+					{
+						// This option tells VLC to use external audio
+						media.AddOption($":input-slave={dialog.FileName}");
+						media.Parse();
+					}
+				}
+			}
+		}
+
+		// Helper class for audio track info
+		private class AudioTrackInfo
+		{
+			public int Id { get; set; }
+			public string Codec { get; set; }
+			public string Language { get; set; }
+			public int TrackNumber { get; set; }
+			public string DisplayName =>
+				$"Track {TrackNumber} - {Language ?? "Unknown"} [{Codec ?? "Unknown Codec"}]";
+		}
+
+
+
+		private void TogglePlayPause(object sender, EventArgs e)
+		{
+			if (_activeTrack == null) return;
+
+			if (_isPlaying)
+			{
+				_activeTrack.MediaPlayer.Pause();
+				_playPauseBtn.Text = "▶";
+			}
+			else
+			{
+				_activeTrack.MediaPlayer.Play();
+				_playPauseBtn.Text = "⏸";
+			}
+			_isPlaying = !_isPlaying;
+		}
+
+		private void UpdateTimeLabels(object sender, EventArgs e)
+		{
+			foreach (var track in _tracks)
+			{
+				if (track.MediaPlayer.Media == null) continue;
+				track.TimeLabel.Text = $"{FormatTime(track.MediaPlayer.Time)} / {FormatTime(track.MediaPlayer.Media.Duration)}";
+				if (track.MediaPlayer.Media.Duration > 0)
+					track.Timeline.Value = (int)((double)track.MediaPlayer.Time / track.MediaPlayer.Media.Duration * 1000);
+			}
+		}
+
+		private void UpdateLayout()
+		{
+			if (_tracks.Count == 0) return;
+
+			int topOffset = _uiHidden ? 0 : 50;
+			int cols = (int)Math.Ceiling(Math.Sqrt(_tracks.Count));
+			int rows = (int)Math.Ceiling((double)_tracks.Count / cols);
+
+			int cellWidth = this.ClientSize.Width / cols;
+			int cellHeight = (this.ClientSize.Height - topOffset) / rows;
+
+			for (int i = 0; i < _tracks.Count; i++)
+			{
+				int row = i / cols;
+				int col = i % cols;
+
+				var panel = _tracks[i].Panel;
+				panel.Location = new Point(col * cellWidth, topOffset + row * cellHeight);
+				panel.Size = new Size(cellWidth, cellHeight);
+			}
+		}
+
+		private string FormatTime(long milliseconds)
+		{
+			var ts = TimeSpan.FromMilliseconds(milliseconds);
+			return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
 		}
 
 		private void InitializeHideShortcut()
@@ -137,223 +502,59 @@ namespace B1_Apps.Apps.VideoPlayer
 			{
 				if (e.KeyCode == Keys.H)
 				{
-					ToggleUI();
-				}
-			};
-		}
+					_uiHidden = !_uiHidden;
 
-		private void ToggleUI()
-		{
-			_uiHidden = !_uiHidden;
+					_openBtn.Visible = !_uiHidden;
+					_subtitleBtn.Visible = !_uiHidden;
+					_addTrackBtn.Visible = !_uiHidden;
+					_AudioBtn.Visible = !_uiHidden;
 
-			// Always show controls when not in fullscreen
-			bool shouldShow = !_uiHidden || this.WindowState != FormWindowState.Maximized;
-
-			_timeLabel.Visible = shouldShow;
-			_volumeBar.Visible = shouldShow;
-			_openBtn.Visible = shouldShow;
-			_playPauseBtn.Visible = shouldShow;
-			_timeline.Visible = shouldShow;
-			_subtitleBtn.Visible = shouldShow;
-			
-
-		}
-
-		private void AddTimeline()
-		{
-			_timeline = new TrackBar
-			{
-				Dock = DockStyle.Bottom,
-				Height = 30,  // Slightly taller for better usability
-				TickStyle = TickStyle.None,
-				Maximum = 1000
-			};
-			_timeline.MouseDown += (s, e) => _isDraggingTimeline = true;
-			_timeline.MouseUp += (s, e) =>
-			{
-				_isDraggingTimeline = false;
-				if (_mediaPlayer.Media != null)
-				{
-					_mediaPlayer.Time = (long)(_timeline.Value * (_mediaPlayer.Media.Duration / 1000));
-				}
-			};
-			this.Controls.Add(_timeline);
-			_timeline.BringToFront();
-		}
-
-		private void AddPlayPauseButton()
-		{
-			_playPauseBtn = new Button
-			{
-				Text = "⏸",
-				FlatStyle = FlatStyle.Flat,
-				BackColor = Color.Black,
-				ForeColor = Color.White,
-				Size = new Size(50, 50),  // Larger for better visibility
-				Font = new Font("Segoe UI", 12)
-			};
-
-			// Position will be set in UpdateControlPositions()
-			_playPauseBtn.Click += TogglePlayPause;
-			this.Controls.Add(_playPauseBtn);
-			_playPauseBtn.BringToFront();
-			UpdateControlPositions();  // Set initial position
-		}
-		private void OpenVideo(object sender, EventArgs e)
-		{
-			using (var dialog = new OpenFileDialog())
-			{
-				dialog.Filter = "Video Files|*.mp4;*.avi;*.mkv;*.mov;*.wmv|All Files|*.*";
-				if (dialog.ShowDialog() == DialogResult.OK)
-				{
-					var media = new Media(_libVLC, dialog.FileName);
-
-					// Enable subtitle parsing
-					media.AddOption(":sub-autodetect-file");
-
-					_mediaPlayer.Media = media;
-					_mediaPlayer.Play();
-
-					media.Parse();
-					media.ParsedChanged += (s, args) =>
+					foreach (var track in _tracks)
 					{
-						this.Invoke((MethodInvoker)delegate
-						{
-							_timeline.Maximum = (int)(media.Duration / 1000);
+						track.VolumeBar.Visible = !_uiHidden;
+						track.TimeLabel.Visible = !_uiHidden;
+						track.Timeline.Visible = !_uiHidden;
 
-							// Get all subtitle tracks with names
-							var subtitleTracks = GetSubtitleTracks(media);
+						if (track.RemoveBtn != null)
+							track.RemoveBtn.Visible = !_uiHidden;
 
-							// Auto-enable first subtitle track if available
-							if (subtitleTracks.Count > 0)
-							{
-								_mediaPlayer.SetSpu(subtitleTracks[0].Id);
-								UpdateSubtitleStatus($"Sub: {subtitleTracks[0].DisplayName}");
-							}
-						});
-					};
-				}
-			}
-		}
-		private void UpdateSubtitleStatus(string status)
-		{
-			//TO DO: Implement a label or status bar to show subtitle status
-		}
-
-		private void ShowSubtitleOptions(object sender, EventArgs e)
-		{
-			if (_mediaPlayer.Media == null) return;
-
-			var menu = new ContextMenuStrip();
-			var media = _mediaPlayer.Media;
-
-			// Option 1: Disable subtitles good for native speakears 
-			menu.Items.Add("Disable Subtitles", null, (s, args) =>
-			{
-				_mediaPlayer.SetSpu(-1);
-				UpdateSubtitleStatus("Sub: Off");
-			});
-
-			// Option 2: Embedded subtitles
-			var subtitleTracks = GetSubtitleTracks(media);
-			if (subtitleTracks.Count > 0)
-			{
-				var embeddedMenu = menu.Items.Add("Embedded Tracks") as ToolStripMenuItem;
-				foreach (var track in subtitleTracks)
-				{
-					embeddedMenu.DropDownItems.Add(
-						track.DisplayName,
-						null,
-						(s, args) => {
-							_mediaPlayer.SetSpu(track.Id);
-							UpdateSubtitleStatus($"Sub: {track.DisplayName}");
-						});
-				}
-			}
-
-			// Option 3: Load external subtitle file should work
-			menu.Items.Add("Load External Subtitle...", null, (s, args) => LoadExternalSubtitle());
-
-			menu.Show(Cursor.Position);
-		}
-		private List<SubtitleTrackInfo> GetSubtitleTracks(Media media)
-		{
-			var tracks = new List<SubtitleTrackInfo>();
-			int trackNumber = 1;
-
-			if (media.Tracks != null)
-			{
-				foreach (var track in media.Tracks.OfType<MediaTrack>()
-											  .Where(t => t.TrackType == TrackType.Text))
-				{
-					tracks.Add(new SubtitleTrackInfo
-					{
-						Id = track.Id,
-						Name = "Track",
-						Language = track.Language,
-						TrackNumber = trackNumber++
-					});
-				}
-			}
-			return tracks;
-		}
-
-
-		private void LoadExternalSubtitle()
-		{
-			using (var dialog = new OpenFileDialog())
-			{
-				dialog.Filter = "Subtitle Files|*.srt;*.ass;*.ssa;*.sub|All Files|*.*";
-				if (dialog.ShowDialog() == DialogResult.OK)
-				{
-					var media = _mediaPlayer.Media;
-					if (media != null)
-					{
-						media.AddOption($":sub-file={dialog.FileName}");
-						media.Parse();
-						UpdateSubtitleStatus($"Sub: {Path.GetFileName(dialog.FileName)}");
+						if (track.PlayPauseBtn != null)
+							track.PlayPauseBtn.Visible = !_uiHidden;
 					}
+
+					UpdateLayout();
 				}
-			}
+			};
 		}
 
-		private void TogglePlayPause(object sender, EventArgs e)
-		{
-			if (_isPlaying)
-			{
-				_mediaPlayer.Pause();
-				_playPauseBtn.Text = "▶"; // Play icon
-			}
-			else
-			{
-				_mediaPlayer.Play();
-				_playPauseBtn.Text = "⏸"; // Pause icon
-			}
-			_isPlaying = !_isPlaying;
-		}
-
-		private void UpdateTimeLabel(object sender, EventArgs e)
-		{
-			if (_mediaPlayer.Media == null) return;
-			_timeLabel.Text = $"{FormatTime(_mediaPlayer.Time)} / {FormatTime(_mediaPlayer.Media.Duration)}";
-		}
-
-		private string FormatTime(long milliseconds)
-		{
-			var ts = TimeSpan.FromMilliseconds(milliseconds);
-			return $"{(int)ts.TotalHours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
-		}
 
 		protected override void OnFormClosing(FormClosingEventArgs e)
 		{
 			_updateTimer?.Stop();
-			_mediaPlayer?.Stop();
-			_mediaPlayer?.Dispose();
+			foreach (var track in _tracks)
+			{
+				track.MediaPlayer?.Stop();
+				track.MediaPlayer?.Dispose();
+			}
 			_libVLC?.Dispose();
 			base.OnFormClosing(e);
 		}
 	}
-	 class SubtitleTrackInfo
+
+	class VideoTrack
+	{
+		public MediaPlayer MediaPlayer { get; set; }
+		public VideoView VideoView { get; set; }
+		public TrackBar VolumeBar { get; set; }
+		public Label TimeLabel { get; set; }
+		public TrackBar Timeline { get; set; }
+		public Panel Panel { get; set; }
+		public Button RemoveBtn { get; set; }
+		public Button PlayPauseBtn { get; set; }
+
+	}
+
+	class SubtitleTrackInfo
 	{
 		public int Id { get; set; }
 		public string Name { get; set; }

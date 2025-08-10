@@ -21,7 +21,9 @@
     
     <!-- Windows 11 Compatibility -->
   </PropertyGroup>
-
+<PropertyGroup>
+  <PublishSingleFile>false</PublishSingleFile>
+</PropertyGroup>
   <ItemGroup>
     <!-- Resource files -->
     <None Remove="Resources\ffmpeg.exe" />
@@ -49,12 +51,14 @@
 
   <ItemGroup>
     <!-- Content Files -->
-    <Content Include="FFMPEG\ffmpeg.exe">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="FFMPEG\ffprobe.exe">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Update="FFMPEG\ffmpeg.exe">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+  </Content>
+  <Content Update="FFMPEG\ffprobe.exe">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+  </Content>
     <Content Include="Resources\yt-dlp.exe">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
