@@ -618,7 +618,7 @@ namespace B1_Apps.Apps.AudioPlayer
 			{
 				if (this.WindowState == FormWindowState.Minimized)
 				{
-					visualizerTimer.Interval = 100; // 10 FPS when minimized
+					visualizerTimer.Interval = 1000; // 10 FPS when minimized
 				}
 				else
 				{
@@ -627,7 +627,7 @@ namespace B1_Apps.Apps.AudioPlayer
 					// Bonus: Reduce FPS if window is small to save CPU
 					if (this.ClientSize.Width < 400 || this.ClientSize.Height < 300)
 					{
-						visualizerTimer.Interval = 33; // ~30 FPS for small windows
+						visualizerTimer.Interval = 330; // ~30 FPS for small windows
 					}
 				}
 			}

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -89,10 +90,11 @@ namespace B1_Apps.Apps.YTdownloader
 				statusLabel.Text = "Please enter a valid YouTube URL.";
 				return;
 			}
+			var errorBuffer = new System.Text.StringBuilder();
 
-			// 1) Zeptat se na formát: Yes = mp3 (audio), No = mp4 (video + audio), Cancel = zrušit
+			// Ask format
 			var formatChoice = MessageBox.Show(
-				"Choose format:\nYes for MP3 (audio only)\nNo for MP4 (video + audio)",
+				"Choose format:\nYes = MP3 (audio only)\nNo = MP4 (video + audio)",
 				"Select Format",
 				MessageBoxButtons.YesNoCancel);
 
@@ -102,12 +104,8 @@ namespace B1_Apps.Apps.YTdownloader
 				return;
 			}
 
-			// 2) Nastavit argumenty podle volby
-			string formatArgument = formatChoice == DialogResult.Yes
-				? "bestaudio[ext=m4a]"        // mp3 (audio only)
-				: "bestvideo+bestaudio/best"; // mp4 (video + audio)
+			bool audioOnly = formatChoice == DialogResult.Yes;
 
-			// 3) Vybrat složku pro uložení
 			using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
 			{
 				folderDialog.Description = "Select Folder to Save Download";
@@ -128,8 +126,14 @@ namespace B1_Apps.Apps.YTdownloader
 					return;
 				}
 
-				// Sestavit příkaz
-				string arguments = $"-f {formatArgument} --progress --no-warnings --quiet -o \"{downloadFolder}\\%(title)s.%(ext)s\" \"{url}\"";
+				// ✅ Build yt-dlp args
+				string arguments = audioOnly
+					? $"-f bestaudio --extract-audio --audio-format mp3 --audio-quality 0 " +
+					  $"--add-metadata --embed-thumbnail --no-playlist " +
+					  $"-o \"{downloadFolder}\\%(title)s.%(ext)s\" \"{url}\""
+					: $"-f bestvideo+bestaudio " +
+					  $"--add-metadata --embed-thumbnail --no-playlist " +
+					  $"-o \"{downloadFolder}\\%(title)s.%(ext)s\" \"{url}\"";
 
 				try
 				{
@@ -138,28 +142,42 @@ namespace B1_Apps.Apps.YTdownloader
 					progressBar.Visible = true;
 					downloadSpeedLabel.Visible = true;
 
-					var process = new System.Diagnostics.Process
+					var process = new Process
 					{
-						StartInfo = new System.Diagnostics.ProcessStartInfo
+						StartInfo = new ProcessStartInfo
 						{
 							FileName = ytDlpPath,
 							Arguments = arguments,
 							RedirectStandardOutput = true,
 							RedirectStandardError = true,
 							UseShellExecute = false,
-							CreateNoWindow = true
-						}
+							CreateNoWindow = true,
+							StandardOutputEncoding = System.Text.Encoding.UTF8,
+							StandardErrorEncoding = System.Text.Encoding.UTF8
+						},
+						EnableRaisingEvents = true
 					};
 
 					process.OutputDataReceived += (s, ev) =>
 					{
-						if (ev.Data != null)
+						if (!string.IsNullOrWhiteSpace(ev.Data))
 						{
-							var match = System.Text.RegularExpressions.Regex.Match(ev.Data, @"(\d+)%.*?(\d+(\.\d+)?)\s*([KMGT]B/s)");
+							Console.WriteLine("OUT: " + ev.Data);
+						}
+					};
+
+					process.ErrorDataReceived += (s, ev) =>
+					{
+						if (!string.IsNullOrWhiteSpace(ev.Data))
+						{
+							errorBuffer.AppendLine(ev.Data);
+
+							// ✅ parse progress
+							var match = Regex.Match(ev.Data, @"(\d+(?:\.\d+)?)%.*?([0-9.]+\s*[KMGT]?B/s)");
 							if (match.Success)
 							{
-								int percent = int.Parse(match.Groups[1].Value);
-								string speed = match.Groups[4].Value;
+								int percent = (int)double.Parse(match.Groups[1].Value);
+								string speed = match.Groups[2].Value;
 
 								progressBar.Invoke(new Action(() =>
 								{
@@ -173,14 +191,27 @@ namespace B1_Apps.Apps.YTdownloader
 
 					process.Start();
 					process.BeginOutputReadLine();
+					process.BeginErrorReadLine();
 					await process.WaitForExitAsync();
 
-					progressBar.Style = ProgressBarStyle.Blocks;
-					progressBar.Value = 100;
-					statusLabel.Text = "Download completed successfully.";
+					if (process.ExitCode == 0)
+					{
+						progressBar.Value = 100;
+						statusLabel.Text = "Download completed successfully.";
+					}
+					else
+					{
+						string errors = errorBuffer.ToString();
+						if (string.IsNullOrWhiteSpace(errors))
+							errors = "Unknown error (no details captured).";
+
+						MessageBox.Show(errors, "yt-dlp Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+						statusLabel.Text = "Download failed.";
+					}
 				}
 				catch (Exception ex)
 				{
+					MessageBox.Show(ex.Message, "Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
 					statusLabel.Text = $"Exception: {ex.Message}";
 				}
 				finally
@@ -190,6 +221,8 @@ namespace B1_Apps.Apps.YTdownloader
 				}
 			}
 		}
+
+
 		private async void DownloadPlaylistButton_Click(object sender, EventArgs e)
 		{
 			var url = urlTextBox.Text.Trim();
@@ -336,48 +369,91 @@ namespace B1_Apps.Apps.YTdownloader
 				statusLabel.Text = "Cancelled.";
 				return;
 			}
+
 			string folder = dlg.SelectedPath;
 			string yt = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "yt-dlp.exe");
 			if (!File.Exists(yt))
 			{
-				statusLabel.Text = "yt-dlp.exe not found.";
+				MessageBox.Show("yt-dlp.exe not found in Resources folder.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
 
+			statusLabel.Text = "Starting playlist download...";
+
+			var tasks = new List<Task>();
 			foreach (DataGridViewRow row in playlistDataGridView.Rows)
 			{
 				if (!(row.Cells["downloadColumn"].Value is bool dl) || !dl)
 					continue;
-				string videoUrl = row.Cells["urlColumn"].Value.ToString();
 
-				
-					
-				string title = row.Cells["titleColumn"].Value?.ToString();
-				string chosenFormat = row.Cells["formatColumn"].Value?.ToString();
-				string fmt = chosenFormat == "Audio" ? "bestaudio[ext=m4a]" : "bestvideo+bestaudio";
-				string safeTitle = string.Concat(title.Split(Path.GetInvalidFileNameChars()));
-				string args = $"-f {fmt} --progress --no-warnings --quiet -o \"{folder}\\{safeTitle}.%(ext)s\" \"{videoUrl}\"";
+				tasks.Add(DownloadVideoAsync(row, folder, yt));
+			}
 
-				statusLabel.Text = $"Downloading '{title}'...";
-				var proc = new System.Diagnostics.Process
+			await Task.WhenAll(tasks);
+
+			statusLabel.Text = "Playlist download finished.";
+		}
+
+		private async Task DownloadVideoAsync(DataGridViewRow row, string folder, string ytDlpPath)
+		{
+			string videoUrl = row.Cells["urlColumn"].Value?.ToString() ?? "";
+			string title = row.Cells["titleColumn"].Value?.ToString() ?? "video";
+			string chosenFormat = row.Cells["formatColumn"].Value?.ToString();
+			string safeTitle = string.Concat(title.Split(Path.GetInvalidFileNameChars()));
+
+			string args;
+			if (chosenFormat == "Audio")
+			{
+				args = $"-f bestaudio " +
+					   $"--extract-audio --audio-format mp3 --audio-quality 0 " +
+					   $"--add-metadata --embed-thumbnail --no-warnings " +
+					   $"-o \"{Path.Combine(folder, safeTitle + ".%(ext)s")}\" " +
+					   $"\"{videoUrl}\"";
+			}
+			else
+			{
+				args = $"-f bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4 " +
+					   $"--merge-output-format mp4 --add-metadata --embed-thumbnail --no-warnings " +
+					   $"-o \"{Path.Combine(folder, safeTitle + ".%(ext)s")}\" " +
+					   $"\"{videoUrl}\"";
+			}
+
+			await Task.Run(() =>
+			{
+				var proc = new Process
 				{
-					StartInfo = new System.Diagnostics.ProcessStartInfo
+					StartInfo = new ProcessStartInfo
 					{
-						FileName = yt,
+						FileName = ytDlpPath,
 						Arguments = args,
-						RedirectStandardOutput = true,
-						RedirectStandardError = true,
 						UseShellExecute = false,
+						RedirectStandardError = true,
 						CreateNoWindow = true
 					}
 				};
 
 				proc.Start();
-				await proc.WaitForExitAsync();
-			}
+				string stderr = proc.StandardError.ReadToEnd();
+				proc.WaitForExit();
 
-			statusLabel.Text = "Playlist download finished.";
+				if (proc.ExitCode != 0)
+				{
+					MessageBox.Show(
+						$"Download failed for: {title}\n\nSTDERR:\n{stderr}",
+						"Download Error",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Error
+					);
+				}
+			});
+
+			// Update statusLabel safely from background thread
+			if (statusLabel.InvokeRequired)
+				statusLabel.Invoke(new Action(() => statusLabel.Text = $"Downloaded: {title}"));
+			else
+				statusLabel.Text = $"Downloaded: {title}";
 		}
+
 
 
 	}

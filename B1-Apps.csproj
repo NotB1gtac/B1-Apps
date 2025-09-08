@@ -34,7 +34,12 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
+	<PropertyGroup>
+		<EnableMsixTooling>true</EnableMsixTooling>
+	</PropertyGroup>
+
+
+	<ItemGroup>
     <!-- Package References -->
     <PackageReference Include="AngouriMath" Version="1.3.0" />
     <PackageReference Include="Clipper2" Version="1.5.4" />
