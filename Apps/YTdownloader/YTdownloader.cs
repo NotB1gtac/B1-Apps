@@ -367,6 +367,7 @@ namespace B1_Apps.Apps.YTdownloader
 			if (dlg.ShowDialog() != DialogResult.OK)
 			{
 				statusLabel.Text = "Cancelled.";
+				statusLabel.BackColor = Color.LightYellow;
 				return;
 			}
 
@@ -379,6 +380,7 @@ namespace B1_Apps.Apps.YTdownloader
 			}
 
 			statusLabel.Text = "Starting playlist download...";
+			statusLabel.BackColor = Color.LightYellow;
 
 			var tasks = new List<Task>();
 			foreach (DataGridViewRow row in playlistDataGridView.Rows)
@@ -392,6 +394,7 @@ namespace B1_Apps.Apps.YTdownloader
 			await Task.WhenAll(tasks);
 
 			statusLabel.Text = "Playlist download finished.";
+			statusLabel.BackColor = Color.LightGreen;
 		}
 
 		private async Task DownloadVideoAsync(DataGridViewRow row, string folder, string ytDlpPath)
@@ -452,6 +455,7 @@ namespace B1_Apps.Apps.YTdownloader
 				statusLabel.Invoke(new Action(() => statusLabel.Text = $"Downloaded: {title}"));
 			else
 				statusLabel.Text = $"Downloaded: {title}";
+			statusLabel.BackColor = Color.LightGreen;
 		}
 
 
