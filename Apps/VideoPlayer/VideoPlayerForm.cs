@@ -106,6 +106,7 @@ namespace B1_Apps.Apps.VideoPlayer
 		private void CreateNewTrack()
 		{
 			var player = new MediaPlayer(_libVLC);
+			player.SetAudioOutput("directsound");
 			var videoView = new VideoView
 			{
 				MediaPlayer = player,
